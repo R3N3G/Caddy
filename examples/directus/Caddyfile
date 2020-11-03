@@ -1,0 +1,25 @@
+# Change to the hostname (or URL) you want to bind to
+localhost:3000 {
+
+  # Change this to the path where you cloned Directus to
+  root /var/www/directus
+  
+  # Change the PHP FPM host and port if you use the non-default
+  fastcgi / 127.0.0.1:9000 php
+  
+  rewrite /admin {
+    to {path} /admin/index.html
+  }
+  
+  rewrite /thumbnail {
+    to {path} /thumbnail/index.php?{query}
+  }
+  
+  rewrite / {
+    if {path} not_starts_with /admin
+    if {path} not_starts_with /storage
+    if {path} not_starts_with /extensions
+    if {path} not_starts_with /thumbnail
+    to {path} /index.php?{query}
+  }
+}

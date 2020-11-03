@@ -1,0 +1,12 @@
+https://domain.io {
+	root /home/user/phabricator/webroot
+	rewrite {
+                if {path} is /
+                to /index.php?__path__=/
+        }
+	rewrite  {
+		to {path} {path}/ /index.php?__path__={path_escaped}&{query}
+	}
+	fastcgi / /var/run/php5-fpm.sock php
+}
+

@@ -1,0 +1,206 @@
+---
+title: tls (Caddyfile directive)
+---
+
+# tls
+
+Configures TLS for the site.
+
+**Caddy's default TLS settings are secure. Only change these settings if you have a good reason and understand the implications.** The most common use of this directive will be to specify an ACME account email address, change the ACME CA endpoint, or to provide your own certificates.
+
+Compatibility note: Due to its sensitive nature as a security protocol, deliberate adjustments to TLS defaults may be made in new minor or patch releases. Old or broken TLS versions, ciphers, features, etc. may be removed at any time. If your deployment is extremely sensitive to changes, you should explicitly specify those values which must remain constant, and be vigilant about upgrades. In almost every case, we recommend using the default settings.
+
+
+## Syntax
+
+```caddy-d
+tls [internal|<email>] | [<cert_file> <key_file>] {
+	protocols <min> [<max>]
+	ciphers   <cipher_suites...>
+	curves    <curves...>
+	alpn      <values...>
+	load      <paths...>
+	ca        <ca_dir_url>
+	ca_root   <pem_file>
+	dns       <provider_name> [<params...>]
+	eab       <key_id> <mac_key>
+	on_demand
+	client_auth {
+		mode                   [request|require|verify_if_given|require_and_verify]
+		trusted_ca_cert        <base64_der>
+		trusted_ca_cert_file   <filename>
+		trusted_leaf_cert      <base64_der>
+		trusted_leaf_cert_file <filename>
+	}
+	issuer <issuer_name> [<params...>]
+}
+```
+
+- **internal** means to use Caddy's internal, locally-trusted CA to produce certificates for this site.
+- **&lt;email&gt;** is the email address to use for the ACME account managing the site's certificates.
+- **&lt;cert_file&gt;** and **&lt;key_file&gt;** are the paths to the certificate and private key PEM files. Specifying just one is invalid; specifying both will disable automatic HTTPS.
+- **protocols** specifies the minimum and maximum protocol versions. Default min: `tls1.2`. Default max: `tls1.3`
+- **ciphers** specifies the list of cipher suite names in descending preference order. Note that cipher suites are not customizable with TLS 1.3. The supported names are (in no particular order here):
+	- TLS_RSA_WITH_3DES_EDE_CBC_SHA
+	- TLS_RSA_WITH_AES_128_CBC_SHA
+	- TLS_RSA_WITH_AES_256_CBC_SHA
+	- TLS_RSA_WITH_AES_128_GCM_SHA256
+	- TLS_RSA_WITH_AES_256_GCM_SHA384
+	- TLS_AES_128_GCM_SHA256
+	- TLS_AES_256_GCM_SHA384
+	- TLS_CHACHA20_POLY1305_SHA256
+	- TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA
+	- TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA
+	- TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA
+	- TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+	- TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
+	- TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+	- TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+	- TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+	- TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+	- TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+	- TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+- **curves** specifies the list of EC curves to support. Supported values are:
+	- x25519
+	- secp256r1
+	- secp384r1
+	- secp521r1
+- **alpn** is the list of values to advertise in the ALPN extension of the TLS handshake.
+- **load** specifies a list of folders from which to load PEM files that are certificate+key bundles.
+- **ca** changes the ACME CA endpoint. This is most often used to use [Let's Encrypt's staging endpoint](https://letsencrypt.org/docs/staging-environment/) or an internal ACME server. (To change this value for the whole Caddyfile, use the `acme_ca` [global option](/docs/caddyfile/options) instead.)
+- **ca_root** specifies a PEM file that contains a trusted root certificate for the ACME CA endpoint, if not in the system trust store.
+- **dns** enables the [DNS challenge](/docs/automatic-https#dns-challenge) using the specified provider plugin, which must be plugged in from one of the [caddy-dns](https://github.com/caddy-dns) repositories. Each provider plugin may have their own syntax following their name; refer to their docs for details. Maintaining support for each DNS provider is a community effort. [Learn how to enable the DNS challenge for your provider at our wiki.](https://caddy.community/t/how-to-use-dns-provider-modules-in-caddy-2/8148)
+- **eab** configures ACME external account binding (EAB) for this site, using the key ID and MAC key provided by your CA.
+- **on_demand** enables [on-demand TLS](/docs/automatic-https#on-demand-tls) for the hostnames given in the site block's address(es).
+- **client_auth** enables and configures TLS client authentication:
+	- **mode** is the mode for authenticating the client. Allowed values are:
+
+		| Mode               | Description                                                                              |
+		|--------------------|------------------------------------------------------------------------------------------|
+		| request            | Ask clients for a certificate, but allow even if there isn't one; do not verify it       |
+		| require            | Require clients to present a certificate, but do not verify it                           |
+		| verify_if_given    | Ask clients for a certificate; allow even if there isn't one, but verify it if there is  |
+		| require_and_verify | Require clients to present a valid certificate that is verified                          |
+
+	Default: `require_and_verify` if any `trusted_ca_cert` or `trusted_leaf_cert` are provided; otherwise, `require`.
+	
+	- **trusted_ca_cert** is a base64 DER-encoded CA certificate against which to validate client certificates. Client certificates which are not signed by any of these CAs will be rejected.
+	- **trusted_ca_cert_file** is a base64 DER-encoded CA certificate file against which to validate client certificates. Client certificates which are not signed by any of these CAs will be rejected.
+	- **trusted_leaf_cert** is a base64 DER-encoded client leaf certificate to accept. Client certificates which are not signed by any of these CAs will be rejected.
+	- **trusted_leaf_cert_file** is a base64 DER-encoded CA certificate file against which to validate client certificates. Client certificates which are not signed by any of these CAs will be rejected.
+
+	Multiple `trusted_*` directives may be specified as a way to chain multiple CA or leaf certificates.
+
+- **issuer** configures a custom certificate issuer, or a source from which to obtain certificates. Which issuer is used and the options that follow in this segment depend on the issuer modules that are available (see below for the standard issuers). Some of the other subdirectives such as `ca` and `dns` are actually shortcuts for configuring the `acme` issuer (and this subdirective was added later), so specifying this directive and some of the others is confusing and thus prohibited.
+
+### Issuers
+
+These issuers come standard with the `tls` directive:
+
+#### acme
+
+Obtains certificates using the ACME protocol.
+
+```caddy
+... acme {
+	dir      <directory_url>
+	test_dir <test_directory_url>
+	email    <email>
+	timeout  <duration>
+	disable_http_challenge
+	disable_tlsalpn_challenge
+	alt_http_port    <port>
+	alt_tlsalpn_port <port>
+	eab <key_id> <mac_key>
+	trusted_roots <pem_files...>
+	dns <provider_name> [<options>]
+	resolvers <dns_servers...>
+}
+```
+
+- **dir** is the URL to the ACME CA's directory. Default: `https://acme-v02.api.letsencrypt.org/directory`
+- **test_dir** is an optional fallback directory to use when retrying challenges; if all challenges fail, this endpoint will be used during retries; useful if a CA has a staging endpoint where you want to avoid rate limits on their production endpoint. Default: `https://acme-staging-v02.api.letsencrypt.org/directory`
+- **email** is the ACME account contact email address.
+- **timeout** is how long to wait before timing out an ACME operation.
+- **disable_http_challenge** will disable the HTTP challenge.
+- **disable_tlsalpn_challenge** will disable the TLS-ALPN challenge.
+- **alt_http_port** is an alternate port on which to serve the HTTP challenge; it has to happen on port 80 so you must forward packets to this alternate port.
+- **alt_tlsalpn_port** is an alternate port on which to serve the TLS-ALPN challenge; it has to happen on port 443 so you must forward packets to this alternate port.
+- **eab** specifies an External Account Binding which may be required with some ACME CAs.
+- **trusted_roots** is one or more root certificates (as PEM filenames) to trust when connecting to the ACME CA server.
+- **dns** configures the DNS challenge.
+- **resolvers** customizes the DNS resolvers used when performing the DNS challenge; these take precedence over system resolvers or any default ones.
+
+
+#### zerossl
+
+Obtains certificates using the ACME protocol, specifically with ZeroSSL.
+
+The config for `zerossl` is exactly the same as the config for `acme`, except that its name is `zerossl`, it will use ZeroSSL's directory, and it will automatically negotiate EAB credentials. In other words, simply specifying this issuer (with no other configuration) is enough to use ZeroSSL.
+
+Its default directory endpoint is `https://acme.zerossl.com/v2/DV90`.
+
+Note that ZeroSSL is RFC-8555-compliant and can be used with the `acme` issuer module instead, but this module is more convenient because it handles the EAB credentials under the hood for you.
+
+
+#### internal
+
+Obtains certificates from an internal certificate authority.
+
+```caddy
+... internal {
+	ca <name>
+}
+```
+
+- **ca** is the name of the internal CA to use. Default: `local`
+
+
+
+## Examples
+
+Use a custom certificate and key:
+
+```caddy-d
+tls cert.pem key.pem
+```
+
+Use locally-trusted certificates for all hosts on the current site block, rather than public certificates via ACME / Let's Encrypt (useful in dev environments):
+
+```caddy-d
+tls internal
+```
+
+Use locally-trusted certificates, but managed on-demand intead of in the background:
+
+```caddy-d
+tls internal {
+	on_demand
+}
+```
+
+Specify an email address for your ACME account (but if only one email is used for all sites, we recommend the `email` [global option](/docs/caddyfile/options) instead):
+
+```caddy-d
+tls your@email.com
+```
+
+Enable the DNS challenge for a domain managed on Cloudflare with account credentials in an environment variable:
+
+```caddy-d
+tls {
+	dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+}
+```
+
+Enable TLS Client Authentication and require clients to present a valid certificate that is verified against all the provided CA's via `trusted_ca_cert_file`
+
+```caddy-d
+tls {
+	client_auth {
+		mode                 require_and_verify
+		trusted_ca_cert_file ../caddy.ca.cer
+		trusted_ca_cert_file ../root.ca.cer
+	}
+}
+```

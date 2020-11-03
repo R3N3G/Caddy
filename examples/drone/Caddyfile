@@ -1,0 +1,9 @@
+example.com {
+    gzip {
+        not /api/
+    }
+    proxy / localhost:8000 {
+        websocket
+        transparent
+    }
+}

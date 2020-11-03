@@ -1,0 +1,9 @@
+example.com
+
+#rewrite all for files and directories that do not exist to index.php
+rewrite {
+  to {path} {path}/  /index.php
+}
+
+fastcgi / 127.0.0.1:9876 php
+root "C:\path\tolumen\public"

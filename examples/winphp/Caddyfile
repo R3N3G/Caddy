@@ -1,0 +1,5 @@
+:2015 {
+	root C:\sites\1
+	on startup php_cgi.bat &
+	fastcgi / 127.0.0.1:6545 php
+}
